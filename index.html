@@ -82,8 +82,6 @@
 			result.y /= w;
 			result.z /= w;
 		}
-		console.log("W = " + w);
-		
 		return result;
 	}
 	
@@ -95,7 +93,7 @@
 	var q = zFar / ( zFar - zNear);
 	
 	var angle = 0;
-
+	
 	function initializeEngine(canv) {		
 		setInterval(renderScene, 10, canv);
 		setInterval(function(inc) {
@@ -104,8 +102,29 @@
 		}, 50, 0.1);
 		renderScene(canv);
 	}
+	
+	const times = [];
+	let fps;
 
 	function renderScene(canv) {
+		window.requestAnimationFrame(() => {
+  	    	  const now = performance.now();
+  	    	  while (times.length > 0 && times[0] <= now - 1000) {
+  	      		times.shift();
+			}
+  	    	times.push(now);
+  	    	fps = times.length;
+  	    });
+		
+		var context = canv.getContext("2d");
+
+		context.fillStyle = "#000000";
+		context.fillRect(0, 0, canv.width, canv.height);
+		
+		context.fillStyle = "#FFFFFF";		
+		context.font = "12px Arial";
+		context.fillText("FPS " + fps, 5, 12);
+	
 		var scene = [
 			{ "mesh" : objects["cube"],
 			  "size" : 1,
@@ -136,12 +155,7 @@
 			0, 0, 0, 1
 		];		
 
-
-		var context = canv.getContext("2d");
-
-		context.fillStyle = "#000000";
-		context.fillRect(0, 0, canv.width, canv.height);
-				
+		
 		context.lineWidth = 1;
 		context.strokeStyle = "#FF00FF";
 		scene.forEach(function(obj) {
@@ -173,8 +187,6 @@
 				context.stroke();
 			})	
 		});
-		
-		console.log("Scene rendered!\n");
 	}
 		
 	function Vector(v1, v2) {
