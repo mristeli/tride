@@ -1,0 +1,257 @@
+<html>
+<head>
+<script type="text/javascript">
+	
+	var objects = { "cube" : new Mesh(
+		// SOUTH
+		[new Triangle(
+			new Vector(0, 0, 0),
+			new Vector(0, 1, 0),
+			new Vector(1, 1, 0)
+		),		
+		new Triangle(
+			new Vector(0, 0, 0),
+			new Vector(1, 1, 0),
+			new Vector(1, 0, 0)
+		),
+		// EAST
+		new Triangle(
+			new Vector(1, 1, 0),
+			new Vector(1, 0, 0),
+			new Vector(1, 0, 1)
+		),
+		new Triangle(
+			new Vector(1, 0, 1),
+			new Vector(1, 1, 1),
+			new Vector(1, 1, 0)
+		),
+		// NORTH
+		new Triangle(
+			new Vector(0, 0, 1),
+			new Vector(0, 1, 1),
+			new Vector(1, 0, 1),
+		),
+		new Triangle(
+			new Vector(1, 0, 1),
+			new Vector(0, 1, 1),
+			new Vector(1, 1, 1)
+		),
+		// WEST
+		new Triangle(
+			new Vector(0, 0, 1),
+			new Vector(0, 1, 1),
+			new Vector(0, 0, 0)
+		),
+		new Triangle(
+			new Vector(0, 0, 0),
+			new Vector(0, 1, 1),
+			new Vector(0, 1, 0)
+		),
+		// UP
+		new Triangle(
+			new Vector(0, 0, 0),
+			new Vector(0, 0, 1),
+			new Vector(1, 0, 1)
+		),
+		new Triangle(
+			new Vector(1, 0, 1),
+			new Vector(1, 0, 0),
+			new Vector(0, 0, 0)
+		),
+		// DOWN
+		new Triangle(
+			new Vector(0, 1, 0),
+			new Vector(0, 1, 1),
+			new Vector(1, 1, 0)
+		),
+		new Triangle(
+			new Vector(1, 1, 0),
+			new Vector(0, 1, 1),
+			new Vector(1, 1, 1)
+		)]
+	)}	
+
+	function multiplyMatrixVector(v, mat) {
+		var result = new Vector(
+			v.x * mat[0] + v.y * mat[4] + v.z * mat[8] + mat[12],
+			v.x * mat[1] + v.y * mat[5] + v.z * mat[9] + mat[13],
+			v.x * mat[2] + v.y * mat[6] + v.z * mat[10] + mat[14]);
+		var w = v.x * mat[3] + v.y * mat[7] + v.z * mat[11] + mat[15];
+		if(w != 0) {
+			result.x /= w;
+			result.y /= w;
+			result.z /= w;
+		}
+		console.log("W = " + w);
+		
+		return result;
+	}
+	
+	var zNear = 0.1;
+	var zFar = 1000;
+	var fov = 90;
+	
+	var fovRad = 1.0 / Math.tan(fov * Math.PI / 180 / 2);
+	var q = zFar / ( zFar - zNear);
+	
+	var angle = 0;
+
+	function initializeEngine(canv) {		
+		setInterval(renderScene, 10, canv);
+		setInterval(function(inc) {
+			angle += inc;
+			if(angle > Math.PI * 4) angle -= Math.PI * 4;
+		}, 50, 0.1);
+		renderScene(canv);
+	}
+
+	function renderScene(canv) {
+		var scene = [
+			{ "mesh" : objects["cube"],
+			  "size" : 1,
+			  "pos" : [0, 0, 3] },
+			{ "mesh" : objects["cube"],
+			  "size" : 2,
+		      "pos" : [0, -4, 15] }
+		];
+		
+		var aspectRatio = canv.height / canv.width;
+		var matProj = [ 
+			aspectRatio * fovRad, 0, 0, 0, 
+			0, fovRad, 0, 0,
+		  	0, 0, q, 1,
+			0, 0, - q * zNear, 0
+		]; 
+				
+		var matRotZ = [
+			Math.cos(angle * 0.5), - Math.sin(angle * 0.5), 0, 0,
+			Math.sin(angle * 0.5), Math.cos(angle * 0.5), 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1
+		];	
+		var matRotX = [ 
+			1, 0, 0, 0,
+			0, Math.cos(angle), - Math.sin(angle), 0,
+			0, Math.sin(angle), Math.cos(angle), 0,
+			0, 0, 0, 1
+		];		
+
+
+		var context = canv.getContext("2d");
+
+		context.fillStyle = "#000000";
+		context.fillRect(0, 0, canv.width, canv.height);
+				
+		context.lineWidth = 1;
+		context.strokeStyle = "#FF00FF";
+		scene.forEach(function(obj) {
+			
+			var mesh = obj["mesh"].scale(obj["size"]);
+		 	mesh = mesh.matrixMultiply(matRotX);
+			mesh = mesh.matrixMultiply(matRotZ);
+			
+			var pos = obj["pos"];
+			mesh = mesh.translate(pos[0], pos[1], pos[2])
+			mesh = mesh.matrixMultiply(matProj);
+			mesh.tris.forEach(function(tri) {
+				tri = tri.translate(1, 1, 0);
+				
+				tri.v1.x *= canv.width / 2;
+				tri.v1.y *= canv.height / 2;
+				tri.v2.x *= canv.width / 2;
+				tri.v2.y *= canv.height / 2;
+				tri.v3.x *= canv.width / 2;
+				tri.v3.y *= canv.height / 2;
+				
+				context.beginPath();
+				context.moveTo(tri.v1.x, tri.v1.y);			
+				context.lineTo(tri.v2.x, tri.v2.y);
+				context.lineTo(tri.v3.x, tri.v3.y);
+				context.lineTo(tri.v1.x, tri.v1.y);
+				context.closePath();
+			
+				context.stroke();
+			})	
+		});
+		
+		console.log("Scene rendered!\n");
+	}
+		
+	function Vector(v1, v2) {
+		return new Vector(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z);
+	}
+	
+	function Vector(_x, _y, _z) {
+		this.x = _x;
+		this.y = _y;
+		this.z = _z;
+		
+		Vector.prototype.cross = function(other) {
+			return new Vector(this.y * other.z - this.z*other.y, 
+				this.z*other.x - this.x*other.z, this.x*other.y - this.y*other.x);
+		}
+		
+		Vector.prototype.dot = function(other) {
+			return this.x * other.x + this.y * other.y 
+				+ this.z * other.z;
+		}
+		
+		Vector.prototype.normalize = function(other) {
+			var mag = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z) 
+			return new Vector(this.x / mag, this.y / mag, this.z / mag);
+		}
+		
+		Vector.prototype.translate = function(i, j, k) {
+			return new Vector(this.x + i, this.y + j, this.z + k);
+		}
+	}
+	
+	function Triangle (_v1, _v2, _v3) {
+		this.v1 = _v1;
+		this.v2 = _v2;
+		this.v3 = _v3;
+		
+		this.normal = (new Vector(this.v1, this.v2)).cross(new Vector(this.v1, this.v3)).normalize();
+		
+		Triangle.prototype.scale = function(r) {
+			return new Triangle(new Vector(this.v1.x * r, this.v1.y * r, this.v1.z * r), 
+				new Vector(this.v2.x * r, this.v2.y * r, this.v2.z * r),
+				new Vector(this.v3.x * r, this.v3.y * r, this.v3.z * r));
+		}
+		
+		Triangle.prototype.translate = function(i, j, k) {
+			return new Triangle(this.v1.translate(i, j, k), 
+				this.v2.translate(i, j, k), 
+				this.v3.translate(i, j, k));
+		}
+	}
+	
+	function Mesh (tris) {
+		this.tris = tris;
+		
+		Mesh.prototype.scale = function(r) {
+			return new Mesh(this.tris.map(tri => tri.scale(r)));
+		}
+		
+		Mesh.prototype.translate = function(i, j, k) {
+			return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
+		}
+			
+		Mesh.prototype.matrixMultiply = function(matrix) {
+			return new Mesh(this.tris.map(
+				tri => new Triangle(
+					multiplyMatrixVector(tri.v1, matrix),
+					multiplyMatrixVector(tri.v2, matrix),
+					multiplyMatrixVector(tri.v3, matrix))
+					));
+		}
+	
+	}
+</script>
+<title>pure js 3d experiments</title>
+</head>
+<body onLoad="javascript:initializeEngine(document.getElementById('view'))">
+<canvas id="view" width="640" height="480">
+</canvas>
+</body>
+</html>
