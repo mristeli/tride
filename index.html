@@ -25403,30 +25403,18 @@
 	}	
 
 	function multiplyMatrixVector(v, mat) {
-		var result = new Vector(
-			v.x * mat[0] + v.y * mat[4] + v.z * mat[8] + mat[12],
-			v.x * mat[1] + v.y * mat[5] + v.z * mat[9] + mat[13],
-			v.x * mat[2] + v.y * mat[6] + v.z * mat[10] + mat[14]);
-		var w = v.x * mat[3] + v.y * mat[7] + v.z * mat[11] + mat[15];
-		if(w != 0) {
-			result.x /= w;
-			result.y /= w;
-			result.z /= w;
+		const x = v.x * mat[0] + v.y * mat[4] + v.z * mat[8] + mat[12];
+		const y = v.x * mat[1] + v.y * mat[5] + v.z * mat[9] + mat[13];
+		const z = v.x * mat[2] + v.y * mat[6] + v.z * mat[10] + mat[14];
+		const w = v.x * mat[3] + v.y * mat[7] + v.z * mat[11] + mat[15];
+		if(w != 0 && w != 1) {
+			return new Vector(x / w, y / w, z / w);
 		}
-		return result;
+		return new Vector(x, y, z);
 	}
 	
-	var zNear = 0.1;
-	var zFar = 1000;
-	var fov = 90;
-	
-	var fovRad = 1.0 / Math.tan(fov * Math.PI / 180 / 2);
-	var q = zFar / ( zFar - zNear);
-	
-	var angle = 0;
-	
 	function initializeEngine(canv) {
-		setInterval(renderScene, 50, canv);
+		setInterval(renderScene, 10, canv);
 		setInterval(function(inc) {
 			angle += inc;
 			if(angle > Math.PI * 4) angle -= Math.PI * 4;
@@ -25434,7 +25422,7 @@
 		renderScene(canv);
 	}
 	
-	var fps = (function() {
+	const fps = (function() {
 		const times = [];
 		return function() {
 			const now = performance.now();
@@ -25445,6 +25433,17 @@
 			return times.length;
 		}
 	})();
+	
+	const zNear = 0.1;
+	const zFar = 1000;
+	const fov = 90;
+	
+	const fovRad = 1.0 / Math.tan(fov * Math.PI / 180 / 2);
+	const q = zFar / ( zFar - zNear);
+	
+	var angle = 0;
+	
+	var camera = new Vector(0, 0, 0);
 
 	function renderScene(canv) {		
 		var context = canv.getContext("2d");
@@ -25457,15 +25456,15 @@
 		context.fillText("FPS " + fps(), 5, 12);
 	
 		var scene = [
-			/*{ "mesh" : objects["cube"],
+			/*{ "mesh" : objects["cube2"],
 			  "size" : 1,
 			  "pos" : [0, 0, 3] },
 			{ "mesh" : objects["cube2"],
 			  "size" : 0.5,
-		      "pos" : [0, -4, 15] },*/
+			"pos" : [-10, -4, 15] } ,*/ 
 			{ "mesh" : objects["teapot"],
-			  "size" : 2,
-			  "pos" : [0, -4, 15] }
+			  "size" : 1,
+			"pos" : [0, 0, 5] }
 		];
 		
 		var aspectRatio = canv.height / canv.width;
@@ -25476,26 +25475,37 @@
 			0, 0, - q * zNear, 0
 		]; 
 		
-		var cos = Math.cos(angle);
-		var cos2 = Math.cos(angle / 2);
-		var sin = Math.sin(angle); 
-		var sin2 = Math.sin(angle / 2)
+		var rotZ = angle / 2;
+		var rotX = angle;  
+		
+		var cos = Math.cos(rotX);
+		var sin = Math.sin(rotX); 
+		
+		var cos2 = Math.cos(rotZ);
+		var sin2 = Math.sin(rotZ);
+		
 		var matRot = [
 			cos2, - sin2 * cos, sin * sin2, 0,
-			sin2, cos * cos2, cos2 * (- sin2), 0,
+			sin2, cos * cos2, cos2 * (- sin), 0,
 			0, sin, cos, 0,
 			0, 0, 0, 1
 		]
 		
 		context.lineWidth = 1;
 		context.strokeStyle = "#FF00FF";
+		
+		context.beginPath();
 		scene.forEach(function(obj) {
-			var mesh = obj["mesh"].scale(obj["size"]);
+			var mesh = obj["mesh"];
+			if(obj["size"] != 1) {
+				mesh = mesh.scale(obj["size"]);
+		 	}
 			mesh = mesh.matrixMultiply(matRot);
-			
 			var pos = obj["pos"];
 			mesh = mesh.translate(pos[0], pos[1], pos[2])
+				.filterNotvisible();
 			mesh = mesh.matrixMultiply(matProj);
+
 			mesh.tris.forEach(function(tri) {
 				tri = tri.translate(1, 1, 0);
 				
@@ -25506,30 +25516,28 @@
 				tri.v3.x *= canv.width / 2;
 				tri.v3.y *= canv.height / 2;
 				
-				context.beginPath();
 				context.moveTo(tri.v1.x, tri.v1.y);			
 				context.lineTo(tri.v2.x, tri.v2.y);
 				context.lineTo(tri.v3.x, tri.v3.y);
-				context.lineTo(tri.v1.x, tri.v1.y);
-				context.closePath();
-			
-				context.stroke();
-			})	
-		});
+				context.lineTo(tri.v1.x, tri.v1.y);		
+			});
+		})
+		context.closePath();
+		context.stroke();
 	}
 		
-	function Vector(v1, v2) {
-		return new Vector(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z);
-	}
-	
 	function Vector(_x, _y, _z) {
 		this.x = _x;
 		this.y = _y;
 		this.z = _z;
 		
+		Vector.prototype.dirVecFrom = function(other) {
+			return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
+		}
+		
 		Vector.prototype.cross = function(other) {
-			return new Vector(this.y * other.z - this.z*other.y, 
-				this.z*other.x - this.x*other.z, this.x*other.y - this.y*other.x);
+			return new Vector(this.y * other.z - this.z * other.y, 
+				this.z * other.x - this.x * other.z, this.x * other.y - this.y * other.x);
 		}
 		
 		Vector.prototype.dot = function(other) {
@@ -25537,8 +25545,8 @@
 				+ this.z * other.z;
 		}
 		
-		Vector.prototype.normalize = function(other) {
-			var mag = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z) 
+		Vector.prototype.normalize = function() {
+			var mag = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z); 
 			return new Vector(this.x / mag, this.y / mag, this.z / mag);
 		}
 		
@@ -25552,8 +25560,8 @@
 		this.v2 = _v2;
 		this.v3 = _v3;
 		
-		this.normal = (new Vector(this.v1, this.v2)).cross(new Vector(this.v1, this.v3)).normalize();
-		
+		this.normal = this.v2.dirVecFrom(this.v1).cross(this.v3.dirVecFrom(this.v1)).normalize();
+
 		Triangle.prototype.scale = function(r) {
 			return new Triangle(new Vector(this.v1.x * r, this.v1.y * r, this.v1.z * r), 
 				new Vector(this.v2.x * r, this.v2.y * r, this.v2.z * r),
@@ -25576,6 +25584,10 @@
 		
 		Mesh.prototype.translate = function(i, j, k) {
 			return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
+		}
+		
+		Mesh.prototype.filterNotvisible = function() {
+			return new Mesh(this.tris.filter(tri => tri.normal.z < 0.0))
 		}
 			
 		Mesh.prototype.matrixMultiply = function(matrix) {
