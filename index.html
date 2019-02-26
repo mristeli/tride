@@ -68,8 +68,74 @@
 			new Vector(1, 1, 0),
 			new Vector(0, 1, 1),
 			new Vector(1, 1, 1)
-		)]
-	)}	
+		)]),
+		"cube2" : new Mesh(
+		[new Triangle(
+			new Vector(-0.5, -0.5, -0.5),
+			new Vector(-0.5, 0.5, -0.5),
+			new Vector(0.5, 0.5, -0.5)
+		),		
+		new Triangle(
+			new Vector(-0.5, -0.5, -0.5),
+			new Vector(0.5, 0.5, -0.5),
+			new Vector(0.5, -0.5, -0.5)
+		),
+		// EAST
+		new Triangle(
+			new Vector(0.5, -0.5, -0.5),
+			new Vector(0.5, 0.5, -0.5),
+			new Vector(0.5, 0.5, 0.5)
+		),
+		new Triangle(
+			new Vector(0.5, -0.5, -0.5),
+			new Vector(0.5, 0.5, 0.5),
+			new Vector(0.5, -0.5, 0.5)
+		),
+		// NORTH
+		new Triangle(
+			new Vector(0.5, 0.5, 0.5),
+			new Vector(-0.5, -0.5, 0.5),
+			new Vector(0.5, -0.5, 0.5)
+		),
+		new Triangle(
+			new Vector(0.5, 0.5, 0.5),
+			new Vector(-0.5, 0.5, 0.5),
+			new Vector(-0.5, -0.5, 0.5)
+		),
+		// WEST
+		new Triangle(
+			new Vector(-0.5, -0.5, 0.5),
+			new Vector(-0.5, 0.5, 0.5),
+			new Vector(-0.5, -0.5, -0.5)
+		),
+		new Triangle(
+			new Vector(-0.5, -0.5, -0.5),
+			new Vector(-0.5, 0.5, 0.5),
+			new Vector(-0.5, 0.5, -0.5)
+		),
+		// DOWN
+		new Triangle(
+			new Vector(-0.5, -0.5, -0.5),
+			new Vector(0.5, -0.5, -0.5),
+			new Vector(-0.5, -0.5, 0.5)
+		),
+		new Triangle(
+			new Vector(-0.5, -0.5, 0.5),
+			new Vector(0.5, -0.5, -0.5),
+			new Vector(0.5, -0.5, 0.5)
+		),
+		// UP
+		new Triangle(
+			new Vector(-0.5, 0.5, -0.5),
+			new Vector(-0.5, 0.5, 0.5),
+			new Vector(0.5, 0.5, -0.5)
+		),
+		new Triangle(
+			new Vector(0.5, 0.5, -0.5),
+			new Vector(-0.5, 0.5, 0.5),
+			new Vector(0.5, 0.5, 0.5)
+		)])
+	}	
 
 	function multiplyMatrixVector(v, mat) {
 		var result = new Vector(
@@ -94,7 +160,7 @@
 	
 	var angle = 0;
 	
-	function initializeEngine(canv) {		
+	function initializeEngine(canv) {
 		setInterval(renderScene, 10, canv);
 		setInterval(function(inc) {
 			angle += inc;
@@ -103,19 +169,19 @@
 		renderScene(canv);
 	}
 	
-	const times = [];
-	let fps;
-
-	function renderScene(canv) {
-		window.requestAnimationFrame(() => {
-  	    	  const now = performance.now();
-  	    	  while (times.length > 0 && times[0] <= now - 1000) {
-  	      		times.shift();
+	var fps = (function() {
+		const times = [];
+		return function() {
+			const now = performance.now();
+  	    	while (times.length > 0 && times[0] <= now - 1000) {
+  	    		times.shift();
 			}
   	    	times.push(now);
-  	    	fps = times.length;
-  	    });
-		
+			return times.length;
+		}
+	})();
+
+	function renderScene(canv) {		
 		var context = canv.getContext("2d");
 
 		context.fillStyle = "#000000";
@@ -123,13 +189,13 @@
 		
 		context.fillStyle = "#FFFFFF";		
 		context.font = "12px Arial";
-		context.fillText("FPS " + fps, 5, 12);
+		context.fillText("FPS " + fps(), 5, 12);
 	
 		var scene = [
 			{ "mesh" : objects["cube"],
 			  "size" : 1,
 			  "pos" : [0, 0, 3] },
-			{ "mesh" : objects["cube"],
+			{ "mesh" : objects["cube2"],
 			  "size" : 2,
 		      "pos" : [0, -4, 15] }
 		];
