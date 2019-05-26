@@ -1,8 +1,20 @@
 function getObjects() {
-	var objects = { 
+	var objects = {
+		"square" : new Mesh([
+			new Triangle(
+				new Vector(0, 0, 0),
+				new Vector(0, 1, 0),
+				new Vector(1, 1, 0)
+			),
+			new Triangle(
+				new Vector(0, 0, 0),
+				new Vector(1, 1, 0),
+				new Vector(1, 0, 0)
+			)
+		]),
 		"teapot" : new Mesh([
 		new Triangle(
-			new Vector(1.368074, 2.435437, -0.227403),
+				new Vector(1.368074, 2.435437, -0.227403),
 			new Vector(1.381968, 2.400000, -0.229712),
 			new Vector(1.400000, 2.400000, 0.000000)), 
 		new Triangle(
