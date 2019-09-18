@@ -2,7 +2,6 @@
 <head>
 <script type="text/javascript" src="objects.js"></script>
 <script type="text/javascript">
-	const objects = getObjects();
 	
 	function multiplyMatrixVector(v, mat) {
 		const x = v.x * mat[0] + v.y * mat[4] + v.z * mat[8] + mat[12];
@@ -14,8 +13,7 @@
 		}
 		return new Vector(x, y, z);
 	}
-	
-	
+
 	function initializeEngine(canv) {
 		const rendererSettings = function(run = true, inc = 0.01, change = 0.03) {	
 			this.isRunning = function() {
@@ -38,7 +36,7 @@
 	
 		document.addEventListener('keydown', function(e) {
 			if(!e) e = window.event;
-		
+
 			if(e.keyCode == 32) rendererSettings.toggleRunning();
 			if(e.keyCode == 38) rendererSettings.increseInc();
 			if(e.keyCode == 40) rendererSettings.reduceInc();
@@ -53,14 +51,14 @@
 		renderScene(canv, rendererSettings);
 	}
 	
-	const fps = (function() {
-		const times = [];
+	var fps = (function() {
+		var times = [];
 		return function() {
 			const now = performance.now();
   	    	while (times.length > 0 && times[0] <= now - 1000) {
   	    		times.shift();
 			}
-  	    	times.push(now);
+  	  times.push(now);
 			return times.length;
 		}
 	})();
@@ -87,17 +85,16 @@
 		context.fillText("FPS " + fps(), 5, 12);
 		context.fillText("INC " + rendererSettings.getInc().toFixed(4), 5, 30);
 	
-	
 		var scene = [
-			{ "mesh" : objects["cube2"],
-			  "size" : 1,
-			  "pos" : [0, 0, 15] },,
+			{ "mesh" : objects["teapot"],
+			  "size" : 3,
+			  "pos" : [0, 0, 15] }/* ,
 			{"mesh" : objects["cube2"],
 			  "size" : 1,
 			"pos" : [-10, -4, 15] }, 
 			{ "mesh" : objects["cube2"],
 			  "size" : 1,
-			"pos" : [0, 3, 5] }
+			"pos" : [0, 3, 5] }*/
 		];
 		
 		const aspectRatio = canv.height / canv.width;
@@ -152,34 +149,29 @@
 			});
 		})
 	}
-		
+	
 	function Vector(_x, _y, _z) {
 		this.x = _x;
 		this.y = _y;
 		this.z = _z;
-		
-		Vector.prototype.dirVecFrom = function(other) {
-			return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
-		}
-		
-		Vector.prototype.cross = function(other) {
-			return new Vector(this.y * other.z - this.z * other.y, 
-				this.z * other.x - this.x * other.z, this.x * other.y - this.y * other.x);
-		}
-		
-		Vector.prototype.dot = function(other) {
-			return this.x * other.x + this.y * other.y 
+	}
+	Vector.prototype.dirVecFrom = function(other) {
+		return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
+	}
+	Vector.prototype.cross = function(other) {
+		return new Vector(this.y * other.z - this.z * other.y, 
+			this.z * other.x - this.x * other.z, this.x * other.y - this.y * other.x);
+	}
+	Vector.prototype.dot = function(other) {
+		return this.x * other.x + this.y * other.y 
 				+ this.z * other.z;
-		}
-		
-		Vector.prototype.normalize = function() {
-			var mag = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z); 
-			return new Vector(this.x / mag, this.y / mag, this.z / mag);
-		}
-		
-		Vector.prototype.translate = function(i, j = 0, k = 0) {
-			return new Vector(this.x + i, this.y + j, this.z + k);
-		}
+	}
+	Vector.prototype.normalize = function() {
+		var mag = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z); 
+				return new Vector(this.x / mag, this.y / mag, this.z / mag);
+	}
+	Vector.prototype.translate = function(i, j = 0, k = 0) {
+		return new Vector(this.x + i, this.y + j, this.z + k);
 	}
 	
 	function Triangle (_v1, _v2, _v3) {
@@ -188,49 +180,43 @@
 		this.v3 = _v3;
 		
 		this.normal = this.v2.dirVecFrom(this.v1).cross(this.v3.dirVecFrom(this.v1)).normalize();
-
-		Triangle.prototype.scale = function(r) {
-			return new Triangle(new Vector(this.v1.x * r, this.v1.y * r, this.v1.z * r), 
-				new Vector(this.v2.x * r, this.v2.y * r, this.v2.z * r),
-				new Vector(this.v3.x * r, this.v3.y * r, this.v3.z * r));
-		}
-		
-		Triangle.prototype.translate = function(i, j = 0, k = 0) {
-			return new Triangle(this.v1.translate(i, j, k), 
-				this.v2.translate(i, j, k), 
-				this.v3.translate(i, j, k));
-		}
+	}
+	Triangle.prototype.scale = function(r) {
+		return new Triangle(new Vector(this.v1.x * r, this.v1.y * r, this.v1.z * r), 
+			new Vector(this.v2.x * r, this.v2.y * r, this.v2.z * r),
+			new Vector(this.v3.x * r, this.v3.y * r, this.v3.z * r));
+	}
+	Triangle.prototype.translate = function(i, j = 0, k = 0) {
+		return new Triangle(this.v1.translate(i, j, k), 
+			this.v2.translate(i, j, k), 
+			this.v3.translate(i, j, k));
 	}
 	
 	function Mesh (tris) {
-		this.tris = tris;
-		
-		Mesh.prototype.scale = function(r) {
-			return new Mesh(this.tris.map(tri => tri.scale(r)));
-		}
-		
-		Mesh.prototype.translate = function(i, j, k) {
-			return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
-		}
-		
-		Mesh.prototype.filterNotvisible = function() {
-			return new Mesh(this.tris.filter(tri => tri.normal.z > 0.0))
-		}
-			
-		Mesh.prototype.matrixMultiply = function(matrix) {
-			return new Mesh(this.tris.map(
-				tri => new Triangle(
-					multiplyMatrixVector(tri.v1, matrix),
-					multiplyMatrixVector(tri.v2, matrix),
-					multiplyMatrixVector(tri.v3, matrix))
-					));
-		}
-	
+		this.tris = tris;	
 	}
+	Mesh.prototype.scale = function(r) {
+		return new Mesh(this.tris.map(tri => tri.scale(r)));
+	}
+	Mesh.prototype.translate = function(i, j, k) {
+		return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
+	}
+	Mesh.prototype.filterNotvisible = function() {
+		return new Mesh(this.tris.filter(tri => tri.normal.z > 0.0))
+	}
+	Mesh.prototype.matrixMultiply = function(matrix) {
+		return new Mesh(this.tris.map(
+			tri => new Triangle(
+				multiplyMatrixVector(tri.v1, matrix),
+				multiplyMatrixVector(tri.v2, matrix),
+				multiplyMatrixVector(tri.v3, matrix))
+			));
+	}
+	const objects = getObjects();
 </script>
 <title>pure js 3d fun</title>
 </head>
-<body onLoad="javascript:initializeEngine(document.getElementById('view'))">
+<body onload="initializeEngine(document.getElementById('view'))">
 <canvas id="view" width="640" height="480">
 </canvas>
 </body>
