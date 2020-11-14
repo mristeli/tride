@@ -16,7 +16,7 @@
 	}
 
 	function initializeEngine(canv) {
-		const rendererSettings = function(run = false, inc = 0.01, change = 0.03) {	
+		const rendererSettings = function(run = true, inc = 0.01, change = 0.03) {	
 			this.isRunning = function() {
 				return run;
 			}
@@ -92,7 +92,8 @@
 	}
 
 	function fillColor(tri, camera, obj) {
-		const pos = new Vector(obj.pos[0], obj.pos[1], obj.pos[2]).normalize();
+		const pos = new Vector(obj.pos[0] - camera[0].x, 
+			obj.pos[1] - camera[0].y, obj.pos[2] - camera[0].z).normalize();
 		light = -tri.normal.dot(pos);
 		r = obj.col[0], g = obj.col[1], b = obj.col[2];
 		r = Math.floor(r * light), g = Math.floor(g * light), b = Math.floor(b * light);
@@ -117,13 +118,23 @@
 			{
 				"mesh" : objects["cube2"],
 			  "size" : 1,
-				"pos" : [-10, -4, 15], 
+				"pos" : [-3, 0, 5], 
 				"col" : [200, 100, 0]
+			},
+			{ "mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : [3, 0, 5],
+				"col" : [0, 0, 200]
 			}, 
 			{ "mesh" : objects["cube2"],
 			  "size" : 1,
 				"pos" : [0, 0, 5],
 				"col" : [0, 255, 10]
+			},
+			{ "mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : [0, -15, 30],
+				"col" : [255, 00, 0]
 			}
 		];
 		
