@@ -1,5 +1,17 @@
 function getObjects() {
 	var objects = {
+		"plane" : new Mesh([
+			new Triangle(
+				new Vector(-0.5, 0, -0.5),
+				new Vector(-0.5, 0, 0.5),
+				new Vector(0.5, 0, 0.5),
+			),
+			new Triangle(
+				new Vector(-0.5, 0, -0.5),
+				new Vector(0.5, 0, 0.5),
+				new Vector(0.5, 0, -0.5),
+			),
+		]),
 		"square" : new Mesh([
 			new Triangle(
 				new Vector(0, 0, 0),
