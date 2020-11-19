@@ -45,15 +45,15 @@
 				camera[0].y += 0.1;
 			}
 			this.cameraIn = function() {
-				camera[0].z += 0.5;
+				camera[1].z += 0.5;
 			}
 			this.cameraOut = function() {
-				camera[0].z -= 0.5;
+				camera[1].z -= 0.5;
 			}
 			this.turnCamera = function(dir) {
+				var d = (dir * Math.PI / 30)
+				var cam_cos = Math.cos(d), cam_sin = Math.sin(d);
 				return function() {
-					d = (dir * Math.PI / 100)
-					cam_cos = Math.cos(d), cam_sin = Math.sin(d);
 					const matCamRot = [
 						cam_cos, 0, - cam_sin, 0,
 						0, 1, 0, 0,
@@ -61,9 +61,14 @@
 						0, 0, 0, 0
 					]
 					camera[0] = multiplyMatrixVector(camera[0], matCamRot);
-					camrea[2] += d;
-					console.log('cam x y z {0},{1},{2}'.format(camera[0].x, camera[0].y,
-						camera[0].z));
+					camera[2] = camera[2] - d;
+					if(camera[2] < 0) {
+						camera[2] += 2*Math.PI;
+					} else if (camera[2] > 2*Math.PI) {
+						camera[2] -= 2*Math.PI;
+					}
+					// console.log('cam x y z {0},{1},{2}'.format(camera[0].x, camera[0].y,
+						// camera[0].z));
 				}
 			}
 			return this;
@@ -120,59 +125,40 @@
 	var angle = 0;
 	
 	// pos_vec, dir_vec
-	var camera = [new Vector(0, 0, -15),
-		new Vector(0, 0, 1.0), 0];
+	var camera = [new Vector(0, 0, -25),
+		new Vector(0, 0, -25), 0];
+	var lightPole = new Vector(10, 0, 5)
 
 	var animationFrame;
 
 	function toHex(c) {
 	 	return c.toString(16).padStart(2, '0');
 	}
+	
+	const v_screen_cam = new Vector(0, 0, -5);
 
-	function fillColor(tri, camera, obj) {
-		const pos = new Vector(obj.pos[0] - camera[0].x, 
-			obj.pos[1] - camera[0].y, obj.pos[2] - camera[0].z).normalize();
-		light = -tri.normal.dot(pos);
-		r = obj.col[0], g = obj.col[1], b = obj.col[2];
-		r = Math.floor(r * light), g = Math.floor(g * light), b = Math.floor(b * light);
-		return "#{0}{1}{2}".format(toHex(r), toHex(g), toHex(b));
+	function brightness(tri, camera, obj) {
+		const reverse_angle = camera[2] > Math.PI / 2 && camera[2] < 3*Math.PI / 2; 
+		const tri_loc_wo_y = new Vector(tri.v1.x, 0, tri.v1.z);
+		const cam_vec = v_screen_cam.dirVecFrom(tri_loc_wo_y).normalize()
+		var brightness = reverse_angle ? 
+			tri.normal.dot(cam_vec) : 
+			cam_vec.dot(tri.normal);
+
+		// // console.log('obj {0} light {1}'.format(obj.name, brightness));
+		return brightness < 0.3 ? 0.3 : brightness;
+	}
+
+	function getObjectsForRender() {
+		return scene//.filter(obj => obj.pos.z > camera[0].z)
+			.sort((_o1, _o2) => 
+					_o2.pos.dirVecFrom(camera[0]).length - 
+						_o1.pos.dirVecFrom(camera[0]).length 
+				)
 	}
 
 	function renderScene(canv, sceneSettings) {
 		var context = canv.getContext("2d");
-		var scene = [
-			{
-				"mesh" : objects["plane"],
-				"size" : 80,
-				"pos" : [0, -30, 40],
-				"col" : [255, 255, 255]
-			},
-			{ 
-				"mesh" : objects["cube2"],
-			  "size" : 1,
-				"pos" : [0, -15, 30],
-				"col" : [255, 00, 0]
-			},
-			{
-				"mesh" : objects["cube2"],
-			  "size" : 1,
-				"pos" : [0, 0, 10],
-				"col" : [0, 255, 10]
-			},
-			{
-				"mesh" : objects["cube2"],
-			  "size" : 1,
-				"pos" : [-2, 0, 5], 
-				"col" : [200, 100, 0]
-			},
-			{ 
-				"mesh" : objects["cube2"],
-			  "size" : 1,
-				"pos" : [2, 0, 5],
-				"col" : [0, 0, 200]
-			}
-		];
-
 		context.fillStyle = "#000000";
 		context.fillRect(0, 0, canv.width, canv.height);
 		
@@ -190,7 +176,7 @@
 		const matProj = [ 
 			aspectRatio * fovRad, 0, 0, 0, 
 			0, -fovRad, 0, 0,
-		  	1, 1, q, 1,
+		  1, 1, q, 1,
 			0, 0, - q * zNear, 0
 		];
 	
@@ -202,47 +188,57 @@
 		const matCamRot = [
 				cam_cos, 0, - cam_sin, 0,
 				0, 1, 0, 0,
-				- cam_sin, 0, cam_cos, 0,
-				0, 0, 0, 0
+				cam_sin, 0, cam_cos, 0,
+				//  - camera[0].x, - camera[0].y, - camera[0].z, 1
+				0, 0, - camera[1].z, 1
 			]
 
-		scene.forEach(function(obj) {
-			var mesh = obj["mesh"];
-			mesh = mesh.scale(obj["size"])
-			const pos = obj["pos"];
-			const matRotTrans = [
-				cos2, - sin2 * cos, sin * sin2, 0,
-				sin2, cos * cos2, cos2 * (- sin), 0,
-				0, sin, cos, 0,
-				pos[0] - camera[0].x, pos[1] - camera[0].y, pos[2] - camera[0].z, 1
-			];
-		
-			mesh = mesh.matrixMultiply(matRotTrans)
-				.matrixMultiply(matCamRot)
-			mesh.tris.forEach(function(tri) {
-				tri.fillStyle = fillColor(tri, camera, obj)
-			});
+		getObjectsForRender()
+			.forEach(function(obj) {
+				var mesh = obj["mesh"];
+				const pos = obj["pos"];
+				const matRotTrans = [
+					cos2, - sin2 * cos, sin * sin2, 0,
+					sin2, cos * cos2, cos2 * (- sin), 0,
+					0, sin, cos, 0,
+					//pos[0] - camera[0].x, pos[1] - camera[0].y, pos[2] - camera[0].z, 1
+					0, 0, 0, 1
+				];
+			
+				mesh = mesh
+					.matrixMultiply(matCamRot)
+					.matrixMultiply(matRotTrans)
 
-			mesh = mesh
-				.matrixMultiply(matProj)
-				.filterNotvisible();
-		
-			mesh.tris.forEach(function(tri) {				
-				context.fillStyle = tri.fillStyle;
-				context.strokeStyle = tri.fillStyle;
-				
-				tri.v1.x *= canv.width / 2;	tri.v1.y *= canv.height / 2;
-				tri.v2.x *= canv.width / 2; tri.v2.y *= canv.height / 2; 
-				tri.v3.x *= canv.width / 2; tri.v3.y *= canv.height / 2;
-				
-				context.beginPath();
-				context.moveTo(tri.v1.x, tri.v1.y);			
-				context.lineTo(tri.v2.x, tri.v2.y);
-				context.lineTo(tri.v3.x, tri.v3.y);
-				context.closePath();
-				context.fill();
-				context.stroke();	
-			});
+				mesh.tris.forEach(function(tri) {
+					var b = brightness(tri, camera, obj)
+					if(b < 0) b = 0;
+					tri.fillStyle = "#{0}{1}{2}".format(
+						toHex(Math.floor(obj.col[0] * b)), 
+						toHex(Math.floor(obj.col[1] * b)), 
+						toHex(Math.floor(obj.col[2] * b))
+					);
+				});
+
+				mesh = mesh
+					.matrixMultiply(matProj)
+					.filterNotvisible()
+			
+				mesh.tris.forEach(function(tri) {		
+					context.fillStyle = tri.fillStyle;
+					context.strokeStyle = tri.fillStyle;
+					
+					tri.v1.x *= canv.width / 2;	tri.v1.y *= canv.height / 2;
+					tri.v2.x *= canv.width / 2; tri.v2.y *= canv.height / 2; 
+					tri.v3.x *= canv.width / 2; tri.v3.y *= canv.height / 2;
+					
+					context.beginPath();
+					context.moveTo(tri.v1.x, tri.v1.y);			
+					context.lineTo(tri.v2.x, tri.v2.y);
+					context.lineTo(tri.v3.x, tri.v3.y);
+					context.closePath();
+					context.fill();
+					context.stroke();	
+				});
 		})
 
 		context.fillStyle = "#FFFFFF";		
@@ -310,7 +306,11 @@
 		return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
 	}
 	Mesh.prototype.filterNotvisible = function() {
-		return new Mesh(this.tris.filter(tri => tri.normal.z > 0.0))
+		const neg = (camera[2] > Math.PI / 2 && camera[2] < 3*Math.PI / 2)  
+		return new Mesh(this.tris.filter(tri => {
+			const dot_prod = tri.v1.dirVecFrom(camera[1]).dot(tri.normal)
+			return dot_prod >= 0
+		}))
 	}
 	Mesh.prototype.matrixMultiply = function(matrix) {
 		return new Mesh(this.tris.map(
@@ -323,7 +323,63 @@
 				return ret;
 			}));
 	}
+
+	// Translate meshes to world coordinates
+	function compileScene(_scene) {
+		return _scene.map(_o => Object.assign(_o, {
+			"mesh" : _o.mesh.translate(
+					_o.pos.x, _o.pos.y, _o.pos.z
+			).scale(_o.size)
+		}));
+	}
+
 	const objects = getObjects();
+	const sceneDef = [
+	/*		{
+				"name" : "plane",
+				"mesh" : objects["plane"],
+				"size" : 10000000000,
+				"pos" : new Vector(0, -15, 20),
+				"col" : [255, 255, 255]
+			},
+			{ 
+				"name" : "red",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(0, -15, 20),
+				"col" : [255, 00, 0]
+			},*/
+			{
+				"name" : "green",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(0, 0, 0),
+				"col" : [0, 255, 10]
+			},
+			{
+				"name" : "brown",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(-2, 0, -5), 
+				"col" : [200, 100, 0]
+			},
+			{ 
+				"name" : "blue",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(2, 0, -5),
+				"col" : [0, 0, 200]
+			},
+			{
+				"name" : "violet",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(2, 2, -5),
+				"col" : [200, 0, 200]	
+			}
+		];
+	const scene = compileScene(sceneDef);
+	
 </script>
 <title>pure js 3d fun</title>
 </head>
