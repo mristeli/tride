@@ -1,5 +1,6 @@
 <html>
 <head>
+<script type="text/javascript" src="sceneclasses.js"></script>
 <script type="text/javascript" src="objects.js"></script>
 <script type="text/javascript" src="extension.js"></script>
 <script type="text/javascript">
@@ -17,6 +18,10 @@
 
 	function initializeEngine(canv) {
 		const sceneSettings = function(run = false, inc = 0.01, change = 0.03) {	
+			this.zNear = 0.1;
+			this.zFar = 100;
+			this.fov = 90;
+
 			this.isRunning = function() {
 				return run;
 			}
@@ -33,24 +38,45 @@
 				inc -= change;
 			}
 			this.cameraLeft = function() {
-				camera[0].x -= 0.1;
+				camera[1].x -= 0.5;
 			}
 			this.cameraRight = function() {
-				camera[0].x += 0.1;
+				camera[1].x += 0.5;
 			}
 			this.cameraDown = function() {
-				camera[0].y -= 0.1;
+				camera[1].y -= 0.1;
 			}
 			this.cameraUp = function() {
-				camera[0].y += 0.1;
+				camera[1].y += 0.1;
 			}
 			this.cameraIn = function() {
-				camera[1].z += 0.5;
+				camera[0] += 1.0;
 			}
 			this.cameraOut = function() {
-				camera[1].z -= 0.5;
+				camera[0] -= 1.0;
 			}
 			this.turnCamera = function(dir) {
+				var d = (dir * Math.PI / 30)
+				var cam_cos = Math.cos(d), cam_sin = Math.sin(d);
+				return function() {
+					// const matCamRot = [
+					// 	cam_cos, 0, - cam_sin, 0,
+					// 	0, 1, 0, 0,
+					// 	cam_sin, 0, cam_cos, 0,
+					// 	0, 0, 0, 0
+					// ]
+					// camera[1] = multiplyMatrixVector(camera[0], matCamRot);
+					camera[2][0] = camera[2][0] - d;
+					if(camera[2][0] < 0) {
+						camera[2][0] += 2*Math.PI;
+					} else if (camera[2][0] > 2*Math.PI) {
+						camera[2][0] -= 2*Math.PI;
+					}
+					// console.log('cam x y z {0},{1},{2}'.format(camera[0].x, camera[0].y,
+						// camera[0].z));
+				}
+			}
+			this.tiltCamera = function(dir) {
 				var d = (dir * Math.PI / 30)
 				var cam_cos = Math.cos(d), cam_sin = Math.sin(d);
 				return function() {
@@ -60,15 +86,32 @@
 						cam_sin, 0, cam_cos, 0,
 						0, 0, 0, 0
 					]
-					camera[0] = multiplyMatrixVector(camera[0], matCamRot);
-					camera[2] = camera[2] - d;
-					if(camera[2] < 0) {
-						camera[2] += 2*Math.PI;
-					} else if (camera[2] > 2*Math.PI) {
-						camera[2] -= 2*Math.PI;
+					// camera[0] = multiplyMatrixVector(camera[0], matCamRot);
+					camera[2][1] = camera[2][1] - d;
+					if(camera[2][1] < 0) {
+						camera[2][1] = 0;
+					} else if (camera[2][1] > Math.PI / 2) {
+						camera[2][1] = Math.PI / 2;
 					}
 					// console.log('cam x y z {0},{1},{2}'.format(camera[0].x, camera[0].y,
 						// camera[0].z));
+				}
+			}
+
+
+			this.increaseFov = function(d) {
+				return function() {
+					fov += d;
+				}
+			}
+			this.increaseZnear = function(d) {
+				return function() {
+					zNear += d;
+				}
+			}
+			this.increaseZfar = function(d) {
+				return function() {
+					zFar += d;
 				}
 			}
 			return this;
@@ -85,7 +128,15 @@
 				83 : sceneSettings.cameraOut,
 				87 : sceneSettings.cameraIn,
 				69 : sceneSettings.turnCamera(-1), 
-				81 : sceneSettings.turnCamera(1)
+				81 : sceneSettings.turnCamera(1),
+				70 : sceneSettings.tiltCamera(1),
+				82 : sceneSettings.tiltCamera(-1),
+				72 : sceneSettings.increaseFov(-5),
+				89 : sceneSettings.increaseFov(5),
+				74 : sceneSettings.increaseZnear(-0.1),
+				85 : sceneSettings.increaseZnear(0.1),
+				75 : sceneSettings.increaseZfar(-20),
+				73 : sceneSettings.increaseZfar(20)
 			}
 
 		document.addEventListener('keydown', function(e) {
@@ -115,53 +166,49 @@
 		}
 	})();
 	
-	const zNear = 0.1;
-	const zFar = 100;
-	const fov = 90;
-	
-	const fovRad = 1.0 / Math.tan(fov * Math.PI / 180 / 2);
-	const q = zFar / ( zFar - zNear );
-	
 	var angle = 0;
 	
-	// pos_vec, dir_vec
-	var camera = [new Vector(0, 0, -25),
-		new Vector(0, 0, -25), 0];
+	// zoom, campos, rot angles y x
+	var camera = [0, new Vector(0, 0, -25), [0, 0]];
 	var lightPole = new Vector(10, 0, 5)
 
 	var animationFrame;
-
-	function toHex(c) {
-	 	return c.toString(16).padStart(2, '0');
-	}
 	
 	const v_screen_cam = new Vector(0, 0, -5);
 
+	function toHex(c) {
+	 	return c.toString(16).padStart(2, '0');
+	}	
+
 	function brightness(tri, camera, obj) {
-		const reverse_angle = camera[2] > Math.PI / 2 && camera[2] < 3*Math.PI / 2; 
+		const reverse_angle = camera[2][0] > Math.PI / 2 && camera[2][0] < 3*Math.PI / 2;
 		const tri_loc_wo_y = new Vector(tri.v1.x, 0, tri.v1.z);
 		const cam_vec = v_screen_cam.dirVecFrom(tri_loc_wo_y).normalize()
 		var brightness = reverse_angle ? 
 			tri.normal.dot(cam_vec) : 
 			cam_vec.dot(tri.normal);
-
-		// // console.log('obj {0} light {1}'.format(obj.name, brightness));
 		return brightness < 0.3 ? 0.3 : brightness;
 	}
 
 	function getObjectsForRender() {
-		return scene//.filter(obj => obj.pos.z > camera[0].z)
-			.sort((_o1, _o2) => 
-					_o2.pos.dirVecFrom(camera[0]).length - 
-						_o1.pos.dirVecFrom(camera[0]).length 
-				)
+		return scene.sort((_o1, _o2) => 
+			_o2.pos.dirVecFrom(camera[1]).length - 
+			_o1.pos.dirVecFrom(camera[1]).length 
+		)
 	}
 
 	function renderScene(canv, sceneSettings) {
 		var context = canv.getContext("2d");
 		context.fillStyle = "#000000";
 		context.fillRect(0, 0, canv.width, canv.height);
-		
+
+		const zNear = sceneSettings.zNear;
+		const zFar = sceneSettings.zFar;
+		const fov = sceneSettings.fov;
+
+		const fovRad = 1.0 / Math.tan(fov * Math.PI / 180 / 2);
+		const q = zFar / ( zFar - zNear );
+
 		const aspectRatio = canv.height / canv.width;
 		
 		const rotZ = angle/3;
@@ -182,35 +229,60 @@
 	
 		context.lineWidth = 1;
 	
-		cam_cos = Math.cos(camera[2]); 
-		cam_sin = Math.sin(camera[2]);
+		cam_y_cos = Math.cos(camera[2][0]); 
+		cam_y_sin = Math.sin(camera[2][0]);
+		cam_x_cos = Math.cos(camera[2][1]);
+		cam_x_sin = Math.sin(camera[2][1]);
 
-		const matCamRot = [
-				cam_cos, 0, - cam_sin, 0,
-				0, 1, 0, 0,
-				cam_sin, 0, cam_cos, 0,
-				//  - camera[0].x, - camera[0].y, - camera[0].z, 1
-				0, 0, - camera[1].z, 1
-			]
+		const matCamTrans = [
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			- camera[1].x, - camera[1].y, - camera[1].z - camera[0], 1
+		]
+		const mat_cam_rot_y = [
+			cam_y_cos, 0, - cam_y_sin, 0,
+			0, 1, 0, 0,
+			cam_y_sin, 0, cam_y_cos, 0,
+			0, 0, 0, 1
+		]
+		const mat_cam_rot_x = [
+			1, 0, 0, 0,
+			0, cam_x_cos, - cam_x_sin, 0,
+			0, cam_x_sin, cam_x_cos, 0,
+			0, 0, 0, 1
+		]
 
-		getObjectsForRender()
-			.forEach(function(obj) {
+		// const matRotTrans = [
+		// 			cos2, - sin2 * cos, sin * sin2, 0,
+		// 			sin2, cos * cos2, cos2 * (- sin), 0,
+		// 			0, sin, cos, 0,
+		// 			//- camera[1].x, - camera[1].y, - camera[1].z, 1
+		// 			0, 0, 0, 1
+		// 		];
+
+		const objs = getObjectsForRender()
+
+		var d = new Date();
+		objs.forEach(function(obj) {
 				var mesh = obj["mesh"];
-				const pos = obj["pos"];
-				const matRotTrans = [
-					cos2, - sin2 * cos, sin * sin2, 0,
-					sin2, cos * cos2, cos2 * (- sin), 0,
-					0, sin, cos, 0,
-					//pos[0] - camera[0].x, pos[1] - camera[0].y, pos[2] - camera[0].z, 1
-					0, 0, 0, 1
-				];
-			
+				
+				if(obj.pos_d) {
+					const vec_pos_d = obj.pos_d(d.getTime());
+					mesh = mesh.translate(vec_pos_d.x, vec_pos_d.y, vec_pos_d.z);
+				}
+				
+				if(obj["name"] !== "origin") {
+					mesh = mesh.translate(- camera[1].x, - camera[1].y, - camera[1].z)
+				}
+				
 				mesh = mesh
-					.matrixMultiply(matCamRot)
-					.matrixMultiply(matRotTrans)
+					.matrixMultiply(mat_cam_rot_y)
+					.matrixMultiply(mat_cam_rot_x)
+					.translate(- camera[1].x, - camera[1].y, - camera[1].z - camera[0])
 
 				mesh.tris.forEach(function(tri) {
-					var b = brightness(tri, camera, obj)
+					var b = obj["name"] !== "origin" ? brightness(tri, camera, obj) : 1
 					if(b < 0) b = 0;
 					tri.fillStyle = "#{0}{1}{2}".format(
 						toHex(Math.floor(obj.col[0] * b)), 
@@ -218,7 +290,7 @@
 						toHex(Math.floor(obj.col[2] * b))
 					);
 				});
-
+				
 				mesh = mesh
 					.matrixMultiply(matProj)
 					.filterNotvisible()
@@ -243,111 +315,34 @@
 
 		context.fillStyle = "#FFFFFF";		
 		context.font = "12px Arial";
-		context.fillText("FPS " + fps(), 5, 12);
-		context.fillText("INC " + sceneSettings.getInc().toFixed(4), 5, 30);
+		context.fillText("FPS {0} FOV: {1} Znear: {2} Zfar: {3}"
+			.format(fps(), sceneSettings.fov, sceneSettings.zNear, sceneSettings.zFar), 5, 12);
+		context.fillText("INC {0}".format(sceneSettings.getInc().toFixed(4)), 5, 30);
 		context.fillText("CAM x: {0} y: {1} z: {2} angle: {3}"
-			.format(camera[0].x, camera[0].y, camera[0].z, camera[2]), 5, 48);
+			.format(camera[1].x, camera[1].y, camera[1].z, camera[2][0]), 5, 48);
 
 		animationFrame = requestAnimationFrame(
 			() => renderScene(canv, sceneSettings)
 		)
 	}
-	
-	function Vector(_x, _y, _z) {
-		this.x = _x;
-		this.y = _y;
-		this.z = _z;
-	
-		this.length = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
-	}
-	Vector.prototype.dirVecFrom = function(other) {
-		return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
-	}
-	Vector.prototype.cross = function(other) {
-		return new Vector(this.y * other.z - this.z * other.y, 
-			this.z * other.x - this.x * other.z, this.x * other.y - this.y * other.x);
-	}
-	Vector.prototype.dot = function(other) {
-		return this.x * other.x + this.y * other.y 
-				+ this.z * other.z;
-	}
-	Vector.prototype.normalize = function() {
-		return new Vector(this.x / this.length, this.y / this.length, this.z / this.length);
-	}
-	Vector.prototype.translate = function(i, j = 0, k = 0) {
-		return new Vector(this.x + i, this.y + j, this.z + k);
-	}
-	
-	function Triangle (_v1, _v2, _v3) {
-		this.v1 = _v1;
-		this.v2 = _v2;
-		this.v3 = _v3;
-		
-		this.normal = this.v2.dirVecFrom(this.v1).cross(this.v3.dirVecFrom(this.v1)).normalize();
-	}
-	Triangle.prototype.scale = function(r) {
-		return new Triangle(new Vector(this.v1.x * r, this.v1.y * r, this.v1.z * r), 
-			new Vector(this.v2.x * r, this.v2.y * r, this.v2.z * r),
-			new Vector(this.v3.x * r, this.v3.y * r, this.v3.z * r));
-	}
-	Triangle.prototype.translate = function(i, j = 0, k = 0) {
-		return new Triangle(this.v1.translate(i, j, k), 
-			this.v2.translate(i, j, k), 
-			this.v3.translate(i, j, k));
-	}
-	
-	function Mesh (tris) {
-		this.tris = tris;	
-	}
-	Mesh.prototype.scale = function(r) {
-		return new Mesh(this.tris.map(tri => tri.scale(r)));
-	}
-	Mesh.prototype.translate = function(i, j, k) {
-		return new Mesh(this.tris.map(tri => tri.translate(i, j, k)));
-	}
-	Mesh.prototype.filterNotvisible = function() {
-		const neg = (camera[2] > Math.PI / 2 && camera[2] < 3*Math.PI / 2)  
-		return new Mesh(this.tris.filter(tri => {
-			const dot_prod = tri.v1.dirVecFrom(camera[1]).dot(tri.normal)
-			return dot_prod >= 0
-		}))
-	}
-	Mesh.prototype.matrixMultiply = function(matrix) {
-		return new Mesh(this.tris.map(
-			tri => {
-				ret = new Triangle(
-					multiplyMatrixVector(tri.v1, matrix),
-					multiplyMatrixVector(tri.v2, matrix),
-					multiplyMatrixVector(tri.v3, matrix))
-				ret.fillStyle = tri.fillStyle;
-				return ret;
-			}));
-	}
 
-	// Translate meshes to world coordinates
 	function compileScene(_scene) {
-		return _scene.map(_o => Object.assign(_o, {
-			"mesh" : _o.mesh.translate(
-					_o.pos.x, _o.pos.y, _o.pos.z
-			).scale(_o.size)
-		}));
+		return _scene.map(_o => {
+			return Object.assign(_o, {
+				"mesh" : _o.mesh.translate(_o.pos.x, _o.pos.y, 
+					_o.pos.z).scale(_o.size)
+				})
+		})
 	}
 
 	const objects = getObjects();
 	const sceneDef = [
-	/*		{
+			/*{
 				"name" : "plane",
 				"mesh" : objects["plane"],
 				"size" : 10000000000,
-				"pos" : new Vector(0, -15, 20),
+				"pos" : new Vector(0, -5, 20),
 				"col" : [255, 255, 255]
-			},
-			{ 
-				"name" : "red",
-				"mesh" : objects["cube2"],
-			  "size" : 1,
-				"pos" : new Vector(0, -15, 20),
-				"col" : [255, 00, 0]
 			},*/
 			{
 				"name" : "green",
@@ -360,7 +355,9 @@
 				"name" : "brown",
 				"mesh" : objects["cube2"],
 			  "size" : 1,
-				"pos" : new Vector(-2, 0, -5), 
+				"pos" : new Vector(-2, 0, -6), 
+				"pos_d" : (t) => new Vector(Math.sin(t / 1000) * 5,
+					0, 0), 
 				"col" : [200, 100, 0]
 			},
 			{ 
@@ -376,6 +373,21 @@
 			  "size" : 1,
 				"pos" : new Vector(2, 2, -5),
 				"col" : [200, 0, 200]	
+			},
+			{ 
+				"name" : "red",
+				"mesh" : objects["cube2"],
+			  "size" : 1,
+				"pos" : new Vector(0, 2, 0),
+				"pos_d" : (t) => new Vector(0, Math.abs(Math.sin(t / 1000) * 10), 0),
+				"col" : [255, 00, 0]
+			},
+			{ 
+				"name" : "origin",
+				"mesh" : objects["cube2"],
+			  "size" : 0.05,
+				"pos" : new Vector(0, -1, 0),
+				"col" : [255, 255, 255]
 			}
 		];
 	const scene = compileScene(sceneDef);
@@ -387,7 +399,9 @@
 <canvas id="view" width="640" height="480" style="float: left;">
 </canvas>
 <div style="float: left;">
-	<p>Camera control</p>
+	<p>
+		Camera control
+	</p>
 	<table>
 		<tr>
 			<td>a</td><td>Camera left</td>
@@ -406,6 +420,20 @@
 		</tr>
 		<tr>
 			<td>e</td><td>Camera rotate right</td>
+		</tr>
+	</table>
+	<p>
+		World view
+	</p>
+	<table>
+		<tr>
+			<td>y-h</td><td>FOV</td>
+		</tr>
+		<tr>
+			<td>u-j</td><td>increase/decrease znear</td>
+		</tr>
+		<tr>
+			<td>i-k</td><td>increase/decrease zfar</td>
 		</tr>
 	</table>
 </div>
